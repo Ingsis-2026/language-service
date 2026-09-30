@@ -8,12 +8,7 @@ Hoy el único lenguaje es PrintScript, a través de la librería [`Printscript20
 
 - **No sabe qué es un snippet.** Su API y sus DTOs hablan de código, no de snippets (nada de `SnippetController` ni `SnippetDTO`).
 - **No guarda estado ni sabe de usuarios.** Las reglas de lint y formato llegan en cada llamada; las guarda `snippet-service`.
-- **Consume los Redis Streams** que publica `snippet-service` (formateo, linteo y tests automáticos) y le devuelve los resultados. No publica en su propio stream ni expone endpoints `/redis/*`.
-- No se expone hacia afuera: solo lo llama `snippet-service` dentro de la red interna.
-
-## Pendiente de decidir
-
-Las US9 y US10 piden ver la salida a medida que se imprime y dar inputs a medida que se piden. Eso necesita SSE o WebSocket entre la UI, `snippet-service` y este servicio. Hay que decidir el borde antes de implementarlas.
+- Solo lo llama `snippet-service`.
 
 ## Correr en local
 
@@ -30,7 +25,6 @@ gpr.key=<token con read:packages>
 
 | Variable | Default |
 |---|---|
-| `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
 | `SERVER_PORT` | `8082` (en Docker, `8080`) |
 
 ## Calidad y CI/CD
