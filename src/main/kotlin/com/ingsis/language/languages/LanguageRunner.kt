@@ -1,5 +1,6 @@
 package com.ingsis.language.languages
 
+import com.ingsis.language.execution.RunResult
 import com.ingsis.language.validation.CodeError
 
 /**
@@ -19,4 +20,14 @@ interface LanguageRunner {
         code: String,
         version: String,
     ): List<CodeError>
+
+    /**
+     * Ejecuta el código dándole [inputs] en orden. Devuelve lo que imprimió y, si falló, el error:
+     * lo impreso antes del error se conserva.
+     */
+    fun run(
+        code: String,
+        version: String,
+        inputs: List<String>,
+    ): RunResult
 }
