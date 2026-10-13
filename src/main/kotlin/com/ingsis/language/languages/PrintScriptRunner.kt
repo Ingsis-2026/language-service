@@ -1,21 +1,29 @@
 package com.ingsis.language.languages
 
 import com.ingsis.language.execution.RunResult
+import com.ingsis.language.formatting.InvalidCodeException
 import com.ingsis.language.validation.CodeError
 import diagnostics.PrintScriptException
+import formatter.FormatterBuilderPS
 import interpreter.Interpreter
 import interpreter.InterpreterException
 import interpreter.Printer
 import interpreter.Reader
 import lexer.Lexer
 import lexer.TokenMapper
+import linter.BrokenRule
+import linter.Linter
 import org.springframework.stereotype.Component
 import parser.Parser
+import rules.FormattingRules
+import tools.jackson.databind.json.JsonMapper
 import version.Version
 
 @Component
 class PrintScriptRunner : LanguageRunner {
     override val language = "PrintScript"
+
+    private val jsonMapper = JsonMapper.builder().build()
 
     override fun supportsVersion(version: String): Boolean = Version.of(version) != null
 
@@ -29,8 +37,7 @@ class PrintScriptRunner : LanguageRunner {
     ): List<CodeError> {
         val parsed = Version.parse(version)
         return try {
-            val tokens = Lexer(TokenMapper(parsed)).convertToTokens(code.lineSequence())
-            Parser.forVersion(parsed).execute(tokens).count()
+            Parser.forVersion(parsed).execute(tokensOf(code, parsed)).count()
             emptyList()
         } catch (e: PrintScriptException) {
             listOf(e.toCodeError())
@@ -47,13 +54,58 @@ class PrintScriptRunner : LanguageRunner {
         val io = TestIO(inputs)
         return try {
             val interpreter = Interpreter.forVersion(parsed, io, io)
-            val tokens = Lexer(TokenMapper(parsed)).convertToTokens(code.lineSequence())
-            Parser.forVersion(parsed).execute(tokens).forEach { interpreter.execute(it) }
+            Parser.forVersion(parsed).execute(tokensOf(code, parsed)).forEach { interpreter.execute(it) }
             RunResult(io.outputs, error = null)
         } catch (e: PrintScriptException) {
             RunResult(io.outputs, e.toCodeError())
         }
     }
+
+    /** Un código que no se puede leer no se puede formatear: es un error del pedido y no un resultado. */
+    override fun format(
+        code: String,
+        version: String,
+        rules: Map<String, Any?>,
+    ): String =
+        try {
+            FormatterBuilderPS().build(FormattingRules.from(rules), Version.parse(version)).format(code)
+        } catch (e: PrintScriptException) {
+            throw InvalidCodeException(listOf(e.toCodeError()))
+        }
+
+    /**
+     * Un código que no parsea no cumple ninguna regla: su error de sintaxis se informa como una
+     * regla incumplida más.
+     */
+    override fun lint(
+        code: String,
+        version: String,
+        rules: Map<String, Any?>,
+    ): List<CodeError> {
+        val parsed = Version.parse(version)
+        val linter = Linter.forConfig(parsed, jsonMapper.writeValueAsString(rules.applicableTo(parsed)))
+        return try {
+            linter
+                .check(Parser.forVersion(parsed).execute(tokensOf(code, parsed)))
+                .getBrokenRules()
+                .map { it.toCodeError() }
+        } catch (e: PrintScriptException) {
+            listOf(e.toCodeError())
+        }
+    }
+
+    private fun tokensOf(
+        code: String,
+        version: Version,
+    ) = Lexer(TokenMapper(version)).convertToTokens(code.lineSequence())
+
+    /**
+     * `readInput` no existe en 1.0, así que su regla no tiene nada que revisar ahí y la librería
+     * la rechaza. Las reglas de un usuario valen para todos sus snippets, de cualquier versión:
+     * en vez de fallar, se ignora.
+     */
+    private fun Map<String, Any?>.applicableTo(version: Version): Map<String, Any?> =
+        if (version < Version.V1_1) this - READ_INPUT_RULE else this
 
     // Las posiciones de la librería son 0-based; al usuario se le muestran 1-based.
     private fun PrintScriptException.toCodeError(): CodeError =
@@ -62,6 +114,12 @@ class PrintScriptRunner : LanguageRunner {
             line = startPosition?.row?.plus(1),
             column = startPosition?.column?.plus(1),
         )
+
+    private fun BrokenRule.toCodeError(): CodeError = CodeError(ruleDescription, errorPosition.row + 1, errorPosition.column + 1)
+
+    private companion object {
+        const val READ_INPUT_RULE = "mandatory-variable-or-literal-in-readInput"
+    }
 }
 
 /**
