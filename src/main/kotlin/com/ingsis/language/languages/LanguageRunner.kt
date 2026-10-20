@@ -30,4 +30,21 @@ interface LanguageRunner {
         version: String,
         inputs: List<String>,
     ): RunResult
+
+    /**
+     * El código con las reglas de formato aplicadas. [rules] son las reglas activas, por su nombre
+     * en la configuración del lenguaje; las que no aparecen no se tocan.
+     */
+    fun format(
+        code: String,
+        version: String,
+        rules: Map<String, Any?>,
+    ): String
+
+    /** Las reglas de lint de [rules] que el código no cumple; vacío si las cumple todas. */
+    fun lint(
+        code: String,
+        version: String,
+        rules: Map<String, Any?>,
+    ): List<CodeError>
 }
