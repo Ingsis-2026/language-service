@@ -50,6 +50,16 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Deja la versión de la librería de PrintScript en META-INF/build-info.properties, para GET /version:
+// snippet-service la consulta y, cuando cambia, vuelve a validar todos los snippets.
+springBoot {
+    buildInfo {
+        properties {
+            additional.put("printscript", printscriptVersion)
+        }
+    }
+}
+
 kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
