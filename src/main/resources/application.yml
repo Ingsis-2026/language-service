@@ -4,6 +4,15 @@ spring:
 
 server:
   port: ${SERVER_PORT:8082}
+  servlet:
+    context-parameters:
+      # El código llega por /execution en un solo mensaje de WebSocket, y Tomcat acepta 8 KB por
+      # defecto. El límite queda igual que el de un snippet en nginx.
+      "[org.apache.tomcat.websocket.textBufferSize]": 1048576
+
+# Cuánto espera una ejecución interactiva (US10) el input que pidió antes de cortarse.
+execution:
+  input-timeout: ${EXECUTION_INPUT_TIMEOUT:5m}
 
 management:
   endpoints:
