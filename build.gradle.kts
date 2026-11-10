@@ -60,6 +60,24 @@ springBoot {
     }
 }
 
+// El agente de New Relic, igual que en el asset-service de la cátedra: Gradle lo baja pero no entra al
+// classpath. copyNewRelic lo deja en build/newrelic junto a su newrelic.yml, y el Dockerfile lo copia a la imagen.
+val newrelic: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
+
+dependencies {
+    newrelic("com.newrelic.agent.java:newrelic-agent:9.5.0")
+}
+
+tasks.register<Sync>("copyNewRelic") {
+    from(newrelic) { rename { "newrelic.jar" } }
+    from("newrelic") { include("newrelic.yml") }
+    into(layout.buildDirectory.dir("newrelic"))
+}
+
 kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
