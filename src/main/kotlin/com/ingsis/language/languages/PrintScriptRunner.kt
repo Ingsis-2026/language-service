@@ -1,6 +1,5 @@
 package com.ingsis.language.languages
 
-import com.ingsis.language.execution.RunResult
 import com.ingsis.language.formatting.InvalidCodeException
 import com.ingsis.language.validation.CodeError
 import diagnostics.PrintScriptException
@@ -45,19 +44,21 @@ class PrintScriptRunner : LanguageRunner {
     }
 
     /** Cada sentencia se ejecuta a medida que el parser la resuelve, como en la CLI. */
-    override fun run(
+    override fun execute(
         code: String,
         version: String,
-        inputs: List<String>,
-    ): RunResult {
+        io: ExecutionIO,
+    ): CodeError? {
         val parsed = Version.parse(version)
-        val io = TestIO(inputs)
+        val console = PrintScriptConsole(io)
         return try {
-            val interpreter = Interpreter.forVersion(parsed, io, io)
+            val interpreter = Interpreter.forVersion(parsed, console, console)
             Parser.forVersion(parsed).execute(tokensOf(code, parsed)).forEach { interpreter.execute(it) }
-            RunResult(io.outputs, error = null)
+            null
         } catch (e: PrintScriptException) {
-            RunResult(io.outputs, e.toCodeError())
+            e.toCodeError()
+        } finally {
+            console.flush()
         }
     }
 
@@ -123,26 +124,33 @@ class PrintScriptRunner : LanguageRunner {
 }
 
 /**
- * Entrada y salida de una ejecución: los inputs salen de una lista y lo impreso se junta en otra.
+ * Adapta el [Printer] y el [Reader] de la librería a un [ExecutionIO].
  *
  * Los outputs son solo lo que imprime `println` (US8). La librería imprime también el mensaje de
- * `readInput` justo antes de pedir el valor, con el mismo [Printer]; por eso, al pedir un input,
- * se descarta lo último impreso si es ese mensaje.
+ * `readInput` justo antes de pedir el valor, con el mismo [Printer]. Por eso cada línea se retiene
+ * hasta saber qué viene después: si lo que sigue es pedir un input con ese mismo mensaje, era el
+ * mensaje y no un output. Así el output sale con una sentencia de demora y no al final.
  */
-private class TestIO(
-    inputs: List<String>,
+private class PrintScriptConsole(
+    private val io: ExecutionIO,
 ) : Printer,
     Reader {
-    private val pending = ArrayDeque(inputs)
-    val outputs = mutableListOf<String>()
+    private var held: String? = null
 
     override fun print(message: String) {
-        outputs.add(message)
+        flush()
+        held = message
     }
 
     override fun input(message: String): String {
-        if (outputs.lastOrNull() == message) outputs.removeLast()
+        if (held == message) held = null else flush()
         // Sin posición: el Interpreter la completa con la del readInput que pidió el valor.
-        return pending.removeFirstOrNull() ?: throw InterpreterException("No hay más inputs para \"$message\"")
+        return io.input(message) ?: throw InterpreterException("No hay más inputs para \"$message\"")
+    }
+
+    /** Entrega la línea retenida, si hay. Al terminar, haya error o no, también: ya no es un mensaje. */
+    fun flush() {
+        held?.let(io::output)
+        held = null
     }
 }
