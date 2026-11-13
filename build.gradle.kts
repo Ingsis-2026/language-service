@@ -37,6 +37,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("tools.jackson.module:jackson-module-kotlin")
     listOf("commons", "lexer", "parser", "interpreter", "formatter", "linter").forEach {
@@ -48,6 +49,34 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+// Deja la versión de la librería de PrintScript en META-INF/build-info.properties, para GET /version:
+// snippet-service la consulta y, cuando cambia, vuelve a validar todos los snippets.
+springBoot {
+    buildInfo {
+        properties {
+            additional.put("printscript", printscriptVersion)
+        }
+    }
+}
+
+// El agente de New Relic, igual que en el asset-service de la cátedra: Gradle lo baja pero no entra al
+// classpath. copyNewRelic lo deja en build/newrelic junto a su newrelic.yml, y el Dockerfile lo copia a la imagen.
+val newrelic: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
+
+dependencies {
+    newrelic("com.newrelic.agent.java:newrelic-agent:9.5.0")
+}
+
+tasks.register<Sync>("copyNewRelic") {
+    from(newrelic) { rename { "newrelic.jar" } }
+    from("newrelic") { include("newrelic.yml") }
+    into(layout.buildDirectory.dir("newrelic"))
 }
 
 kotlin {
