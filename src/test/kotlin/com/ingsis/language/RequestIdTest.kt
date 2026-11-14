@@ -44,6 +44,7 @@ class RequestIdTest(
         path: String,
         code: String,
     ) = mockMvc.post(path) {
+        with(asSnippetService())
         header("X-Request-Id", "abc-123")
         contentType = MediaType.APPLICATION_JSON
         content = """{"code": "$code", "language": "printscript", "version": "1.1"}"""

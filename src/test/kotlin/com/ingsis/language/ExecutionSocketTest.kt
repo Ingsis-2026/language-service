@@ -7,31 +7,42 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.system.CapturedOutput
 import org.springframework.boot.test.system.OutputCaptureExtension
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
+import org.springframework.web.socket.WebSocketHttpHeaders
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.client.standard.StandardWebSocketClient
 import org.springframework.web.socket.handler.TextWebSocketHandler
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.net.URI
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** US9 y US10: ejecutar por WebSocket, con los outputs a medida que salen y los inputs cuando se piden. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = ["execution.input-timeout=1s"])
+@Import(TestJwtDecoder::class)
 class ExecutionSocketTest(
     @LocalServerPort private val port: Int,
 ) {
     private val json = JsonMapper.builder().build()
     private val sessions = mutableListOf<WebSocketSession>()
 
-    /** Lo que llega del servicio, en orden; `closed` al final si cerró la conexión. */
-    private inner class Connection {
+    /**
+     * Lo que llega del servicio, en orden; `closed` al final si cerró la conexión. Se abre con
+     * [token] en `Authorization`, como snippet-service, o sin header si es null.
+     */
+    private inner class Connection(
+        token: String? = TestJwtDecoder.TOKEN,
+    ) {
         val received = LinkedBlockingQueue<JsonNode>()
         val session: WebSocketSession =
             StandardWebSocketClient()
@@ -51,7 +62,8 @@ class ExecutionSocketTest(
                             received.put(json.readTree("""{"type": "closed", "code": ${status.code}}"""))
                         }
                     },
-                    "ws://localhost:$port/execution",
+                    WebSocketHttpHeaders().apply { token?.let { setBearerAuth(it) } },
+                    URI("ws://localhost:$port/execution"),
                 ).get(5, TimeUnit.SECONDS)
                 .also(sessions::add)
 
@@ -81,6 +93,16 @@ class ExecutionSocketTest(
     fun close() = sessions.filter { it.isOpen }.forEach { it.close() }
 
     private fun JsonNode.type() = get("type").asString()
+
+    @Test
+    fun `sin token no se puede abrir el WebSocket`() {
+        assertFailsWith<ExecutionException> { Connection(token = null) }
+    }
+
+    @Test
+    fun `con un token que no es valido no se puede abrir el WebSocket`() {
+        assertFailsWith<ExecutionException> { Connection(token = "otro-token") }
+    }
 
     @Test
     fun `cada println sale como un output y al final llega done sin error`() {
