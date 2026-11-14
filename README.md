@@ -26,6 +26,8 @@ gpr.key=<token con read:packages>
 | Variable | Default |
 |---|---|
 | `SERVER_PORT` | `8082` (en Docker, `8080`) |
+| `AUTH0_DOMAIN` / `AUTH0_INTERNAL_AUDIENCE` | `dev-2fvmkxju8g70kqvs.us.auth0.com` / `https://snippet-searcher/internal`. Solo lo llama `snippet-service`, con un access token machine-to-machine de Auth0 para la API interna, también al abrir el WebSocket de `/execution`. No son secretos. |
+| `AUTH_ENABLED` | `true`. En `false` no pide token: para correrlo en tu máquina sin la aplicación machine-to-machine de Auth0. En las VMs no se toca. |
 
 ## Calidad y CI/CD
 
