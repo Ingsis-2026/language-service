@@ -26,6 +26,18 @@ gpr.key=<token con read:packages>
 | Variable | Default |
 |---|---|
 | `SERVER_PORT` | `8082` (en Docker, `8080`) |
+| `LOG_FORMAT` | Vacío: logs en texto, con el contexto entre corchetes (`[requestId=…, language=…]`). La imagen de Docker trae `ecs`: un JSON por línea (Elastic Common Schema) con `service.name` y el contexto como campos. |
+
+## Logs
+
+Todos los logs de un pedido llevan su `requestId`: el que manda snippet-service en `X-Request-Id`, que es el mismo de sus propios logs, o uno nuevo si no vino. Vuelve en la respuesta.
+
+- Un código inválido, que no cumple reglas de lint o que no se puede formatear, y un lenguaje que no existe: DEBUG, con cuántos errores hay. Son respuestas esperadas.
+- Unas reglas que el lenguaje no acepta: WARN, porque snippet-service solo manda reglas que conoce.
+- Cada ejecución por WebSocket: DEBUG al empezar e INFO al terminar, con `executionId`, el lenguaje, cuánto tardó (`durationMs`) y si falló. Las de `POST /run`, en DEBUG.
+- Un error inesperado: ERROR, con el stack trace y el `requestId`.
+
+Nunca se loguea el código ni lo que imprime.
 
 ## Calidad y CI/CD
 

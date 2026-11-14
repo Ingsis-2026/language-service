@@ -1,9 +1,12 @@
 package com.ingsis.language.linting
 
 import com.ingsis.language.languages.LanguageRegistry
+import com.ingsis.language.observability.withLogContext
 import com.ingsis.language.validation.ValidationResult
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
@@ -32,6 +35,15 @@ class LintController(
         @Valid @RequestBody request: LintRequest,
     ): ValidationResult {
         val errors = registry.runnerFor(request.language, request.version).lint(request.code, request.version, request.rules)
+        if (errors.isNotEmpty()) {
+            withLogContext("language" to request.language, "version" to request.version, "errors" to errors.size) {
+                log.debug("El código no cumple las reglas de lint")
+            }
+        }
         return ValidationResult(valid = errors.isEmpty(), errors = errors)
+    }
+
+    private companion object {
+        val log: Logger = LoggerFactory.getLogger(LintController::class.java)
     }
 }

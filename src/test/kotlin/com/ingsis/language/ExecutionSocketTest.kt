@@ -2,7 +2,10 @@ package com.ingsis.language
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.TestPropertySource
 import org.springframework.web.socket.CloseStatus
@@ -227,5 +230,17 @@ class ExecutionSocketTest(
 
         assertEquals("closed", connection.next().type())
         assertNull(connection.received.poll(1500, TimeUnit.MILLISECONDS))
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension::class)
+    fun `cada ejecucion queda en el log con su lenguaje, cuanto tardo y si fallo`(output: CapturedOutput) {
+        val connection = Connection()
+        connection.start("println(\"uno\");")
+
+        connection.next()
+        assertEquals("done", connection.next().type())
+        val line = output.out.lines().single { it.endsWith("Terminó una ejecución") }
+        listOf("language=printscript", "version=1.1", "failed=false", "durationMs=").forEach { assertTrue(it in line, line) }
     }
 }
