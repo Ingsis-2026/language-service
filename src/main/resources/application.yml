@@ -1,6 +1,20 @@
 spring:
   application:
     name: language-service
+  # Solo lo llama snippet-service, con un access token machine-to-machine de Auth0 para la API interna
+  # (no la de los usuarios: un token del navegador no sirve acá). Spring valida la firma con las claves
+  # públicas del tenant, el issuer, el vencimiento y la audience. Ninguno de los dos valores es secreto.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://${AUTH0_DOMAIN:dev-2fvmkxju8g70kqvs.us.auth0.com}/
+          audiences: ${AUTH0_INTERNAL_AUDIENCE:https://snippet-searcher/internal}
+
+# En false no pide token. Es solo para el docker compose de tu máquina, donde no suele estar la
+# aplicación machine-to-machine de Auth0; en las VMs queda en true.
+auth:
+  enabled: ${AUTH_ENABLED:true}
 
 server:
   port: ${SERVER_PORT:8082}
@@ -19,3 +33,14 @@ management:
     web:
       exposure:
         include: health
+
+# Con LOG_FORMAT=ecs, como en la imagen de Docker, los logs salen en JSON (Elastic Common Schema): una línea por
+# log con el servicio (service.name) y el MDC (requestId, language...) como campos. Sin LOG_FORMAT salen en
+# texto, que es lo cómodo para leerlos corriendo desde el IDE o en los tests; el MDC va entre corchetes antes
+# del logger (el replace saca los corchetes vacíos de los logs que no tienen contexto).
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:}
+  pattern:
+    correlation: '%replace([%mdc] ){''^\[\] $'', ''''}'

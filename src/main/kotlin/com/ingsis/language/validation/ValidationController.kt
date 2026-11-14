@@ -1,8 +1,11 @@
 package com.ingsis.language.validation
 
 import com.ingsis.language.languages.LanguageRegistry
+import com.ingsis.language.observability.withLogContext
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
@@ -38,6 +41,15 @@ class ValidationController(
         @Valid @RequestBody request: ValidationRequest,
     ): ValidationResult {
         val errors = registry.runnerFor(request.language, request.version).validate(request.code, request.version)
+        if (errors.isNotEmpty()) {
+            withLogContext("language" to request.language, "version" to request.version, "errors" to errors.size) {
+                log.debug("El código no es válido")
+            }
+        }
         return ValidationResult(valid = errors.isEmpty(), errors = errors)
+    }
+
+    private companion object {
+        val log: Logger = LoggerFactory.getLogger(ValidationController::class.java)
     }
 }

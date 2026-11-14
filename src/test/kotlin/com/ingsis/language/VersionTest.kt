@@ -20,7 +20,7 @@ class VersionTest(
         val version = buildProperties.get("printscript")!!
         assertTrue(Regex("""\d+\.\d+\.\d+""").matches(version), "versión inesperada: $version")
 
-        mockMvc.get("/version").andExpect {
+        mockMvc.get("/version") { with(asSnippetService()) }.andExpect {
             status { isOk() }
             jsonPath("$.printscript") { value(version) }
         }

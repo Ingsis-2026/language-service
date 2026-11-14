@@ -21,6 +21,7 @@ class RunTest(
         language: String = "printscript",
         version: String = "1.1",
     ) = mockMvc.post("/run") {
+        with(asSnippetService())
         contentType = MediaType.APPLICATION_JSON
         content =
             """{"code": ${quote(code)}, "language": "$language", "version": "$version",

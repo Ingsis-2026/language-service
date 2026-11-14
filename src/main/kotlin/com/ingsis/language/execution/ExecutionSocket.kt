@@ -4,6 +4,7 @@ import com.ingsis.language.languages.ExecutionAbortedException
 import com.ingsis.language.languages.ExecutionIO
 import com.ingsis.language.languages.LanguageRegistry
 import com.ingsis.language.languages.UnsupportedLanguageException
+import com.ingsis.language.observability.withLogContext
 import com.ingsis.language.validation.CodeError
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -158,18 +159,31 @@ class ExecutionHandler(
         val io = SocketIO(execution, request.inputs, request.interactive)
         execution.running =
             executor.submit {
-                val done =
-                    try {
-                        DoneMessage(runner.execute(code, version, io))
-                    } catch (e: ExecutionAbortedException) {
-                        DoneMessage(CodeError(e.message!!, line = null, column = null))
-                    } catch (e: Exception) {
-                        log.error("Falló una ejecución de $language $version", e)
-                        FailureMessage("No se pudo terminar la ejecución")
+                withLogContext(
+                    "executionId" to execution.session.id,
+                    "language" to language,
+                    "version" to version,
+                    "interactive" to request.interactive,
+                ) {
+                    log.debug("Empieza una ejecución")
+                    val started = System.nanoTime()
+                    val done =
+                        try {
+                            DoneMessage(runner.execute(code, version, io))
+                        } catch (e: ExecutionAbortedException) {
+                            DoneMessage(CodeError(e.message!!, line = null, column = null))
+                        } catch (e: Exception) {
+                            log.error("Falló una ejecución", e)
+                            FailureMessage("No se pudo terminar la ejecución")
+                        }
+                    val durationMs = Duration.ofNanos(System.nanoTime() - started).toMillis()
+                    withLogContext("durationMs" to durationMs, "failed" to (done !is DoneMessage || done.error != null)) {
+                        log.info("Terminó una ejecución")
                     }
-                if (execution.session.isOpen) {
-                    send(execution, done)
-                    execution.session.close(CloseStatus.NORMAL)
+                    if (execution.session.isOpen) {
+                        send(execution, done)
+                        execution.session.close(CloseStatus.NORMAL)
+                    }
                 }
             }
     }
