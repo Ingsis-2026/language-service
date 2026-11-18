@@ -20,6 +20,7 @@ class LintTest(
         language: String = "printscript",
         version: String = "1.1",
     ) = mockMvc.post("/lint") {
+        with(asSnippetService())
         contentType = MediaType.APPLICATION_JSON
         content = """{"code": ${quote(code)}, "language": "$language", "version": "$version", "rules": $rules}"""
     }

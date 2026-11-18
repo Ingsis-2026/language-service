@@ -18,6 +18,7 @@ class ValidationTest(
         language: String = "printscript",
         version: String = "1.0",
     ) = mockMvc.post("/validate") {
+        with(asSnippetService())
         contentType = MediaType.APPLICATION_JSON
         content = """{"code": ${quote(code)}, "language": "$language", "version": "$version"}"""
     }

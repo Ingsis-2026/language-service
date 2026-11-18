@@ -35,6 +35,8 @@ val printscriptVersion = "1.1.0"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // Valida el access token machine-to-machine de Auth0 con el que lo llama snippet-service.
+    implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
@@ -45,6 +47,7 @@ dependencies {
     }
 
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
